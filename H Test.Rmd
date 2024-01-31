@@ -19,6 +19,7 @@ When you click the **Knit** button a document will be generated that includes bo
 library(AER)
 library(ivreg)
 dat <- read.csv('tansferdata.csv')
+dat2 <- read.csv('huuu.csv')
 ```
 
 ## Including Plots
@@ -43,6 +44,14 @@ new <- data.frame(Year = c(2010),Country = c("Canada"), lnGDPPCm5 = c(d), IVlnGG
 predict(model, newdata = new)
 
 ```
+```{r square}
+model <- lm(lnHDI ~ lnHDIm5 + GHDIm5 + GHDI2m5 + Ginim5 + Gini2m5 + factor(Country) + factor(Year), data = dat2)
+
+# Print summary of the regression
+summary(model)
+```
+
+
 ```{r idk}
 load("swiid9_5/swiid9_5.rda")
 ```
