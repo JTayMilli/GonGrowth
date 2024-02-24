@@ -34,7 +34,7 @@ summary(model)
 ```
 
 ```{r square}
-model <- lm(lnGDPPC ~ lnGDPPCm5 + IVlnGGm5 + IVlnGG2m5 + IVGinim5 + IVGini2m5 + OPS + TWWIavg + n +  factor(Country) + factor(Year), data = dat)
+model <- lm(lnGDPPC ~ lnGDPPCm5 + IVlnGGm5 + IVlnGG2m5  + IVGinim5 + IVGini2m5  + OPS + TWWIavg + n +  factor(Country) + factor(Year), data = dat) #+ IVlnGG3m5 + IVGini3m5
 
 # Print summary of the regression
 summary(model)
