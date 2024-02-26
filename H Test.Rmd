@@ -30,7 +30,7 @@ You can also embed plots, for example:
 model <- lm(lnGDPPC ~ lnGDPPCm5 + IVGinim5 + IVGini2m5 + factor(Country) + factor(Year), data = dat)
 
 # Print summary of the regression
-summary(model)
+#summary(model)
 ```
 
 ```{r square}
@@ -42,12 +42,18 @@ model4 <- lm(lnGDPPC ~ lnGDPPCm5 + IVlnGGm5 + IVlnGG2m5  + IVGinim5 + IVGini2m5 
 
 model5 <- lm(lnGDPPC ~ lnGDPPCm5 + IVlnGGm5 + IVlnGG2m5  + IVGinim5 + IVGini2m5  + OPS + TWWIavg + dpTWWIavg + n + IVlnGG3m5 + IVGini3m5 + factor(Country) + factor(Year), data = dat) #+ IVlnGG3m5 + IVGini3m5
 
-model3 <- lm(lnGDPPC ~ lnGDPPCm5 + IVlnGGm5 + IVlnGG2m5  + IVGinim5 + IVGini2m5  + OPS + TWWIavg + n + IVlnG2Gm5 + IVlnG2G2m5 + IVlnG2G3m5 + lnGDPPC2m5 + factor(Country) + factor(Year), data = dat) #+ IVlnGG3m5 + IVGini3m5
+model6 <- lm(lnGDPPC ~ lnGDPPCm5 + IVlnGGm5 + IVlnGG2m5  + IVGinim5 + IVGini2m5  + OPS + TWWIavg + dpTWWIavg + n + RellnGDPPCm5 + IVRellnGGm5 + IVRellnGG2m5 + factor(Country) + factor(Year), data = dat) #+ IVlnGG3m5 + IVGini3m5
 
-anova(model4, model5)
+model7 <- lm(lnGDPPC ~ lnGDPPCm5 + IVGinim5 + IVGini2m5  + OPS + TWWIavg + dpTWWIavg + n + RellnGDPPCm5 + IVRellnGGm5 + IVRellnGG2m5 + factor(Country) + factor(Year), data = dat) #+ IVlnGG3m5 + IVGini3m5
+
+model8 <- lm(lnGDPPC ~ lnGDPPCm5 + IVGinim5 + IVGini2m5  + OPS + TWWIavg + dpTWWIavg + n + RelGDPPCm5 + IVRelGGm5 + IVRelGG2m5 + factor(Country) + factor(Year), data = dat) #+ IVlnGG3m5 + IVGini3m5
+
+# model3 <- lm(lnGDPPC ~ lnGDPPCm5 + IVlnGGm5 + IVlnGG2m5  + IVGinim5 + IVGini2m5  + OPS + TWWIavg + n + IVlnG2Gm5 + IVlnG2G2m5 + IVlnG2G3m5 + lnGDPPC2m5 + factor(Country) + factor(Year), data = dat) #+ IVlnGG3m5 + IVGini3m5
+
+anova(model4, model6)
 
 # Print summary of the regression
-summary(model5)
+summary(model8)
 g <- .2
 d <- 10.604420
 new <- data.frame(Year = c(2010),Country = c("Canada"), lnGDPPCm5 = c(d), IVlnGGm5 = c(g*d), IVlnGG2m5 = c(g**2 * d), IVGinim5 = c(g), IVGini2m5 = c(g**2))
