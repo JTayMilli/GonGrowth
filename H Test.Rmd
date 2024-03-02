@@ -36,7 +36,13 @@ summary(model)
 ```{r square}
 model <- lm(lnGDPPC ~ lnGDPPCm5 + IVlnGGm5 + IVlnGG2m5  + IVGinim5 + IVGini2m5  + OPS + TWWIavg + n + IVlnGG3m5 + IVGini3m5 +  factor(Country) + factor(Year), data = dat) #+ IVlnGG3m5 + IVGini3m5
 
-model2 <- lm(lnGDPPC ~ lnGDPPCm5 + IVlnGGm5 + IVlnGG2m5  + IVGinim5 + IVGini2m5  + OPS + TWWIavg + dpTWWIavg + n +factor(Country) + factor(Year), data = dat) #+ IVlnGG3m5 + IVGini3m5
+model2 <- lm(lnGDPPC ~ lnGDPPCm5 + IVlnGGm5 + IVlnGG2m5  + IVGinim5 + IVGini2m5  + OPS + TWWIavg + dpTWWIavg + n + factor(Country) + factor(Year), data = dat) #+ IVlnGG3m5 + IVGini3m5
+
+model2 <- lm(lnGDPPC ~ lnGDPPCm5 + IVlnGGm5 + IVlnGG2m5  + IVGinim5 + IVGini2m5  + OPS + TWWIavg + dpTWWIavg + n + FDIavg + factor(Country) + factor(Year), data = dat) #+ IVlnGG3m5 + IVGini3m5
+
+model2 <- lm(lnGDPPC ~ lnGDPPCm5 + IVlnGGm5 + IVlnGG2m5  + IVGinim5 + IVGini2m5  + OPS + TWWIavg + dpTWWIavg + n + FDIavg + GFDIavg + G2FDIavg + factor(Country) + factor(Year), data = dat) #+ IVlnGG3m5 + IVGini3m5
+
+#############
 
 model4 <- lm(lnGDPPC ~ lnGDPPCm5 + IVlnGGm5 + IVlnGG2m5  + IVGinim5 + IVGini2m5  + OPS + TWWIavg + dpTWWIavg + n + abs_red + factor(Country) + factor(Year), data = dat) #+ IVlnGG3m5 + IVGini3m5
 
@@ -60,6 +66,11 @@ new <- data.frame(Year = c(2010),Country = c("Canada"), lnGDPPCm5 = c(d), IVlnGG
 predict(model, newdata = new)
 
 ```
+```{r FD}
+md <- lm(d5pGDPPC ~ Ginim5 + Gini2m5  + OPS + TWWIavg + dpTWWIavg + n + FDavg + GFDavg + G2FDavg + factor(Country) + factor(Year), data = dat)
+summary(md)
+```
+
 ```{r square}
 model <- lm(lnHDI ~ lnHDIm5 + GHDIm5 + GHDI2m5 + Ginim5 + Gini2m5 + factor(Country) + factor(Year), data = dat2)
 
