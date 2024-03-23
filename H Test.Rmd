@@ -18,6 +18,8 @@ When you click the **Knit** button a document will be generated that includes bo
 ```{r cars}
 library(AER)
 library(ivreg)
+library(jtools)
+library(stargazer)
 dat <- read.csv('tansferdata.csv')
 dat2 <- read.csv('huuu.csv')
 ```
@@ -30,11 +32,13 @@ You can also embed plots, for example:
 model <- lm(lnGDPPC ~ lnGDPPCm5 + IVlnGGm5 + IVGinim5 + OPS + TWWIavg + dpTWWIavg + n + factor(Country) + factor(Year), data = dat)
 
 # Print summary of the regression
-summary(model)
+stargazer(summary(model))
 ```
 
 ```{r square}
 model <- lm(lnGDPPC ~ lnGDPPCm5 + IVlnGGm5 + IVlnGG2m5  + IVGinim5 + IVGini2m5  + OPS + TWWIavg + n + IVlnGG3m5 + IVGini3m5 +  factor(Country) + factor(Year), data = dat) #+ IVlnGG3m5 + IVGini3m5
+
+modelNOIV <- lm(lnGDPPC ~ lnGDPPCm5 + lnGGm5 + lnGG2m5  + Ginim5 + Gini2m5  + OPS + TWWIavg + dpTWWIavg + n + factor(Country) + factor(Year), data = dat) #+ IVlnGG3m5 + IVGini3m5
 
 model2 <- lm(lnGDPPC ~ lnGDPPCm5 + IVlnGGm5 + IVlnGG2m5  + IVGinim5 + IVGini2m5  + OPS + TWWIavg + dpTWWIavg + n + factor(Country) + factor(Year), data = dat) #+ IVlnGG3m5 + IVGini3m5
 
@@ -59,15 +63,100 @@ model8 <- lm(lnGDPPC ~ lnGDPPCm5 + IVGinim5 + IVGini2m5  + OPS + TWWIavg + dpTWW
 anova(model, model2)
 
 # Print summary of the regression
-summary(model2)
+summary(modelNOIV)
+stargazer(modelNOIV, type = "text")
+library(broom)
+tidy(modelNOIV)
+
 g <- .2
 d <- 10.604420
 new <- data.frame(Year = c(2010),Country = c("Canada"), lnGDPPCm5 = c(d), IVlnGGm5 = c(g*d), IVlnGG2m5 = c(g**2 * d), IVGinim5 = c(g), IVGini2m5 = c(g**2))
 predict(model, newdata = new)
 
 ```
+
+```{r IV}
+#ivs <- lm(Gini ~ lnGDPPC + OPS + TWWI + dpTWWI + n + factor(Country) + factor(Year), data = dat)
+
+ivs <- ivreg(lnGDPPC ~ lnGDPPCm5 + lnGGm5 + Ginim5 + OPS + TWWIavg + dpTWWIavg + n + factor(Country) + factor(Year) | OPS + TWWIavg + dpTWWIavg + n + factor(Country) + factor(Year), data = dat)
+
+ivs <- ivreg(lnGDPPC ~ lnGDPPCm5 + Ginim5 + lnGGm5 + dpTWWIavg + n + factor(Country) + factor(Year)| OPS + TWWIavg + dpTWWIavg + n + factor(Country) + factor(Year), data = dat)
+
+summary(ivs)
+```
+```{r Bootstrap SE}
+summary_with_percentiles <- function(x) {
+  summary_data <- summary(x)
+  quantiles <- quantile(x, probs = c(0.001, 0.01, 0.05, 0.1, 0.90, 0.95, 0.99, 0.999))
+  names(quantiles) <- c(".1%", "1%", "5%", "10%", "90%", "95%", "99%", "99.9%")
+  c(summary_data, quantiles)
+}
+
+library(boot)
+data = dat
+
+bootnum = 1000
+
+bootcoef <- vector(mode='list', length=bootnum)
+
+
+# Step 1: First stage regression
+for (i in 1:bootnum) {
+  print(i)
+
+#random sample with replacemnt
+data <- dat[sample(nrow(dat), nrow(dat), replace=T), ]
+
+first_stage <- lm(Gini ~ lnGDPPC + OPS + TWWI + n + factor(Country) + factor(Year) + factor(PR), data = data)
+summary(first_stage)
+
+IVGini <- predict(first_stage)
+
+data$Gini <- IVGini
+data$Gini2 <- data$Gini * data$Gini
+data$lnGG <- data$Gini * data$lnGDPPC
+data$lnGG2 <- data$Gini2 * data$lnGDPPC
+
+# Step 2: Second stage regression
+second_stage <- lm(lnGDPPCp5 ~ lnGDPPC + Gini + Gini2 + lnGG + lnGG2 + n + factor(PR) + factor(Country) + factor(Year), data = data)
+
+bootcoef[i] <- list(summary(second_stage)$coefficients[1:7])
+
+} # end for loop
+
+data <- dat
+
+first_stage <- lm(Gini ~ lnGDPPC + OPS + TWWI + n + factor(Country) + factor(Year) + factor(PR), data = data)
+summary(first_stage)
+
+IVGini <- predict(first_stage)
+
+data$Gini <- IVGini
+data$Gini2 <- data$Gini * data$Gini
+data$lnGG <- data$Gini * data$lnGDPPC
+data$lnGG2 <- data$Gini2 * data$lnGDPPC
+
+# Step 2: Second stage regression
+second_stage <- lm(lnGDPPCp5 ~ lnGDPPC + Gini + Gini2 + lnGG + lnGG2 + n + factor(PR) + factor(Country) + factor(Year), data = data)
+
+summary(second_stage)#$coefficients[1:7]
+
+bootcoef
+
+bootcoefM <- matrix(unlist(bootcoef), nrow = length(bootcoef), byrow = TRUE)
+#for (i in 1:7) { 
+  summary_with_percentiles( summary(bootcoefM[ ,6]) ) 
+#}
+
+
+# Transpose the matrix
+#transposed_matrix <- t(bootcoefM)
+
+```
+
+
 ```{r FD}
-md <- lm(d5pGDPPC ~ Ginim5 + Gini2m5  + OPS + TWWIavg + dpTWWIavg + n + FDavg + GFDavg + G2FDavg + factor(Country) + factor(Year), data = dat)
+md <- lm(d5pGDPPC ~ IVGinim5 + IVGini2m5  + OPS + TWWIavg + dpTWWIavg + n + FDavg + IVGFDavg + IVG2FDavg + factor(Country) + factor(Year), data = dat)
 summary(md)
 ```
 
