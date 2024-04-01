@@ -80,7 +80,7 @@ predict(model, newdata = new)
 
 ivs <- ivreg(lnGDPPC ~ lnGDPPCm5 + lnGGm5 + Ginim5 + OPS + TWWIavg + dpTWWIavg + n + factor(Country) + factor(Year) | OPS + TWWIavg + dpTWWIavg + n + factor(Country) + factor(Year), data = dat)
 
-ivs <- ivreg(lnGDPPC ~ lnGDPPCm5 + Ginim5 + lnGGm5 + dpTWWIavg + n + factor(Country) + factor(Year)| OPS + TWWIavg + dpTWWIavg + n + factor(Country) + factor(Year), data = dat)
+ivs <- ivreg(lnGDPPC ~ lnGDPPCm5 + Ginim5 + lnGGm5 + n + factor(Country) + factor(Year)| OPS + TWWIavg + n + factor(Country) + factor(Year), data = dat)
 
 summary(ivs)
 
@@ -102,15 +102,18 @@ summary(ivs)
 
 
 ```{r Bootstrap SE}
+options(digits = 3)
+
 summary_with_percentiles <- function(x) {
   summary_data <- summary(x)
-  quantiles <- quantile(x, probs = c(0.001, 0.01, 0.05, 0.1, 0.90, 0.95, 0.99, 0.999))
-  names(quantiles) <- c(".1%", "1%", "5%", "10%", "90%", "95%", "99%", "99.9%")
+  quantiles <- quantile(x, probs = c(0.001, 0.01, 0.05, 0.1, .5, 0.90, 0.95, 0.99, 0.999))
+  names(quantiles) <- c(".1%", "1%", "5%", "10%", "50%", "90%", "95%", "99%", "99.9%")
   return(c(quantiles))
   #return(c(summary_data, quantiles))
   #df <- data.frame(c(names(summary_data), names(quantiles)))
   #return(df)
 }
+
 library(boot)
 
 dat <- read.csv('tansferdata.csv')
@@ -121,6 +124,7 @@ bootnum = 1000
 
 fstbootcoef <- vector(mode='list', length=bootnum)
 bootcoef <- vector(mode='list', length=bootnum)
+resSE <- vector(mode='list', length=bootnum)
 
 for (i in 1:bootnum) {
 
@@ -131,7 +135,92 @@ for (i in 1:bootnum) {
   data$Gini <- data$Ginim5
   data$lnGDPPCp5 <- data$lnGDPPC
   data$lnGDPPC <- data$lnGDPPCm5
-  data$PR <- data$PRm5
+  #data$PR <- data$PRm5
+  data$TWWI <- data$TWWIm5
+  data$OPS <- data$OPSm5
+  data$n <- data$nm5
+  data$pOld <- data$pOldm5
+  data$Ur <- data$Urm5
+  
+  # Step 1: First stage regression
+  first_stage <- lm(Gini ~ lnGDPPC + OPS + TWWI + n + pOld + Ur + factor(Country) + factor(Year) , data = data)
+  summary(first_stage)#+ factor(PR)
+  fstbootcoef[i] <- list(summary(second_stage)$coefficients[1:6])
+  
+  # Get predicted Gini
+  #IVGini <- predict(first_stage)
+  
+  # calculate interaction variables
+  #data$Gini <- IVGini 
+  data$Gini2 <- data$Gini * data$Gini
+  data$lnGG <- data$Gini * data$lnGDPPC
+  data$lnGG2 <- data$Gini2 * data$lnGDPPC
+  
+  # Step 2: Second stage regression
+  second_stage <- lm(lnGDPPCp5 ~ lnGDPPC + Gini + Gini2 + lnGG + lnGG2 + n + pOld + Ur + factor(Country) + factor(Year), data = data)#+ factor(PR)
+  
+  #store coefficients in list
+  bootcoef[i] <- list(summary(second_stage)$coefficients[1:11])
+  resSE[i] <- summary(second_stage)$sigma
+
+} # end for loop
+
+#bootcoef
+fstbootcoefM <- matrix(unlist(fstbootcoef), nrow = length(fstbootcoef), byrow = TRUE)
+bootcoefM <- matrix(unlist(bootcoef), nrow = length(bootcoef), byrow = TRUE)
+resSEM <- matrix(unlist(resSE), nrow = length(resSE), byrow = TRUE)
+
+for (i in 1:6) {
+  print(i)
+  print(names(coef(first_stage))[i])
+  koo <- summary_with_percentiles(fstbootcoefM[ ,i])
+  
+  if (koo[3] * koo[7] < 0) {
+    print("NO")
+    print(koo)
+  } else { 
+    #print("YES")
+    print(koo)
+    }
+  print("-----------------------")
+}
+
+
+for (i in 1:11) {
+  print(i)
+  print(names(coef(second_stage))[i])
+  koo <- summary_with_percentiles(bootcoefM[ ,i])
+  
+  if (koo[3] * koo[7] < 0) {
+    print("NO")
+    print(koo)
+  } else { 
+    #print("YES")
+    print(koo)
+    }
+  print("-----------------------")
+}
+
+
+print(names(coef(second_stage))[2])
+koo <- summary_with_percentiles(bootcoefM[ ,2])
+koo
+
+summary_with_percentiles(resSEM)
+
+
+# Transpose the matrix
+#transposed_matrix <- t(bootcoefM)
+
+#-------------------------------
+data = dat
+#random sample with replacemnt, "dat" is the OG dataset
+  
+  #relaballing data for presentation
+  data$Gini <- data$Ginim5
+  data$lnGDPPCp5 <- data$lnGDPPC
+  data$lnGDPPC <- data$lnGDPPCm5
+  #data$PR <- data$PRm5
   data$TWWI <- data$TWWIm5
   data$OPS <- data$OPSm5
   data$n <- data$nm5
@@ -139,63 +228,34 @@ for (i in 1:bootnum) {
   
   # Step 1: First stage regression
   first_stage <- lm(Gini ~ lnGDPPC + OPS + TWWI + n + pOld + factor(PR) + factor(Country) + factor(Year) , data = data)
-  #summary(first_stage)#+ factor(PR)
+  summary(first_stage)#+ factor(PR)
   fstbootcoef[i] <- list(summary(second_stage)$coefficients[1:6])
   
   # Get predicted Gini
-  IVGini <- predict(first_stage)
+  #IVGini <- predict(first_stage)
   
   # calculate interaction variables
-  data$Gini <- IVGini 
+  #data$Gini <- IVGini 
   data$Gini2 <- data$Gini * data$Gini
   data$lnGG <- data$Gini * data$lnGDPPC
   data$lnGG2 <- data$Gini2 * data$lnGDPPC
   
   # Step 2: Second stage regression
-  second_stage <- lm(lnGDPPCp5 ~ lnGDPPC + Gini + Gini2 + lnGG + lnGG2 + n  + pOld + factor(PR) + factor(Country) + factor(Year), data = data)#+ factor(PR)
+  second_stage <- lm(lnGDPPCp5 ~ lnGDPPC + Gini + Gini2 + lnGG + lnGG2 + n  + pOld + TWWIavg + dpTWWIavg + OPSavg + factor(Country) + factor(Year), data = data)#+ factor(PR)
+  summary(second_stage)
   
-  #store coefficients in list
-  bootcoef[i] <- list(summary(second_stage)$coefficients[1:8])
-
-} # end for loop
-
-summary(second_stage)
-
-#bootcoef
-fstbootcoefM <- matrix(unlist(bootcoef), nrow = length(bootcoef), byrow = TRUE)
-bootcoefM <- matrix(unlist(bootcoef), nrow = length(bootcoef), byrow = TRUE)
-
-for (i in 1:8) { 
-  print(i)
-  print(names(coef(second_stage))[i])
-  koo <- summary_with_percentiles(bootcoefM[ ,i])
-  
-  if (koo[4] * koo[5] < 0) {
-    print("NO")
-  } else { print("YES")}
-  print("-----------------------")
-  koo[4]
-}
-
-print(names(coef(second_stage))[2])
-koo <- summary_with_percentiles(bootcoefM[ ,2])
-koo
-
-summary(bootcoefM)
-
-
-# Transpose the matrix
-#transposed_matrix <- t(bootcoefM)
+  summary(second_stage)$sigma
 
 ```
 
 
 
 ```{r Bootstrap SE Relative}
+options(digits = 3)
 summary_with_percentiles <- function(x) {
   summary_data <- summary(x)
-  quantiles <- quantile(x, probs = c(0.001, 0.01, 0.05, 0.1, 0.90, 0.95, 0.99, 0.999))
-  names(quantiles) <- c(".1%", "1%", "5%", "10%", "90%", "95%", "99%", "99.9%")
+  quantiles <- quantile(x, probs = c(0.001, 0.01, 0.05, 0.1, .5, 0.90, 0.95, 0.99, 0.999))
+  names(quantiles) <- c(".1%", "1%", "5%", "10%", "50%", "90%", "95%", "99%", "99.9%")
   return(c(quantiles))
   #return(c(summary_data, quantiles))
   #df <- data.frame(c(names(summary_data), names(quantiles)))
@@ -205,13 +265,13 @@ library(boot)
 
 dat <- read.csv('tansferdata3.csv')
 
-
 data = dat
 # number of iterations
 bootnum = 1000
 
 fstbootcoef <- vector(mode='list', length=bootnum)
 bootcoef <- vector(mode='list', length=bootnum)
+resSE <- vector(mode='list', length=bootnum)
 
 for (i in 1:bootnum) {
 
@@ -226,53 +286,77 @@ for (i in 1:bootnum) {
   data$OPS <- data$OPSm5
   data$n <- data$nm5
   data$pOld <- data$pOldm5
+  data$Ur <- data$Urm5
   
   
   # Step 1: First stage regression
-  first_stage <- lm(Gini ~ lnGDPPC + OPS + TWWI + n + pOld + factor(Country) + factor(Year) , data = data)
+  #first_stage <- lm(Gini ~ lnGDPPC + OPS + TWWI + n + pOld + Ur + factor(PR) + factor(Country) + factor(Year) , data = data)
   #summary(first_stage)#+ factor(PR)
-  fstbootcoef[i] <- list(summary(second_stage)$coefficients[1:6])
+  #fstbootcoef[i] <- list(summary(second_stage)$coefficients[1:6])
   
   # Get predicted Gini
-  IVGini <- predict(first_stage)
+  #IVGini <- predict(first_stage)
   
   # calculate interaction variables
-  data$Gini <- IVGini 
+  # data$Gini <- IVGini 
   data$Gini2 <- data$Gini * data$Gini
   data$lnGG <- data$Gini * data$lnGDPPC
   data$lnGG2 <- data$Gini2 * data$lnGDPPC
   
   # Step 2: Second stage regression
-  second_stage <- lm(d5pGDPPC ~ lnGDPPC + Gini + Gini2 + lnGG + lnGG2 + n  + pOld + factor(Country) + factor(Year), data = data)#+ factor(PR)
+  second_stage <- lm(d5pGDPPC ~ lnGDPPC + Gini + Gini2 + lnGG + lnGG2 + TWWIavg + dpTWWIavg + OPSavg + n + Ur + pOld + factor(Country) + factor(Year), data = data)#+ factor(PR)
   
   #store coefficients in list
   bootcoef[i] <- list(summary(second_stage)$coefficients[1:8])
+  resSE[i] <- summary(second_stage)$sigma
 
 } # end for loop
 
 summary(second_stage)
 
 #bootcoef
-fstbootcoefM <- matrix(unlist(bootcoef), nrow = length(bootcoef), byrow = TRUE)
-bootcoefM <- matrix(unlist(bootcoef), nrow = length(bootcoef), byrow = TRUE)
 
-for (i in 1:8) { 
+fstbootcoefM <- matrix(unlist(fstbootcoef), nrow = length(fstbootcoef), byrow = TRUE)
+bootcoefM <- matrix(unlist(bootcoef), nrow = length(bootcoef), byrow = TRUE)
+resSEM <- matrix(unlist(resSE), nrow = length(resSE), byrow = TRUE)
+
+for (i in 1:6) {
+  print(i)
+  print(names(coef(first_stage))[i])
+  koo <- summary_with_percentiles(fstbootcoefM[ ,i])
+  
+  if (koo[3] * koo[7] < 0) {
+    print("NO")
+    print(koo)
+  } else { 
+    #print("YES")
+    print(koo)
+    }
+  print("-----------------------")
+}
+
+
+for (i in 1:11) {
   print(i)
   print(names(coef(second_stage))[i])
   koo <- summary_with_percentiles(bootcoefM[ ,i])
   
-  if (koo[4] * koo[5] < 0) {
+  if (koo[3] * koo[7] < 0) {
     print("NO")
-  } else { print("YES")}
+    print(koo)
+  } else { 
+    #print("YES")
+    print(koo)
+    }
   print("-----------------------")
-  koo[4]
 }
+
+summary_with_percentiles(resSEM)
+
 i = 6
 print(names(coef(second_stage))[i])
 koo <- summary_with_percentiles(bootcoefM[ ,i])
 koo
-
-summary(bootcoefM)
 
 
 # Transpose the matrix
@@ -282,10 +366,12 @@ summary(bootcoefM)
 
 
 ```{r Bootstrap SE FinDev}
+#----------------------------------
+
 summary_with_percentiles <- function(x) {
   summary_data <- summary(x)
-  quantiles <- quantile(x, probs = c(0.001, 0.01, 0.05, 0.1, 0.90, 0.95, 0.99, 0.999))
-  names(quantiles) <- c(".1%", "1%", "5%", "10%", "90%", "95%", "99%", "99.9%")
+  quantiles <- quantile(x, probs = c(0.001, 0.01, 0.05, 0.1, .5, 0.90, 0.95, 0.99, 0.999))
+  names(quantiles) <- c(".1%", "1%", "5%", "10%", "50%", "90%", "95%", "99%", "99.9%")
   return(c(quantiles))
   #return(c(summary_data, quantiles))
   #df <- data.frame(c(names(summary_data), names(quantiles)))
@@ -295,13 +381,14 @@ summary_with_percentiles <- function(x) {
 library(boot)
 
 dat <- read.csv('tansferdata2.csv')
-data = dat
 
+data = dat
 # number of iterations
 bootnum = 1000
 
 fstbootcoef <- vector(mode='list', length=bootnum)
 bootcoef <- vector(mode='list', length=bootnum)
+resSE <- vector(mode='list', length=bootnum)
 
 for (i in 1:bootnum) {
 
@@ -310,17 +397,18 @@ for (i in 1:bootnum) {
   
   #relaballing data for presentation
   data$Gini <- data$Ginim5
-  data$lnGDPPCp5 <- data$lnGDPPC
-  data$lnGDPPC <- data$lnGDPPCm5
   #data$PR <- data$PRm5
   data$TWWI <- data$TWWIm5
   data$OPS <- data$OPSm5
   data$pOld <- data$pOldm5
   data$FD <- data$FDm5
   data$n <- data$nm5
+  data$pOld <- data$pOldm5
+  data$Ur <- data$Urm5
+  
   
   # Step 1: First stage regression
-  first_stage <- lm(Gini ~ OPS + TWWI + n + FD + pOld + factor(Country) + factor(Year) , data = data)
+  first_stage <- lm(Gini ~ FD + OPS + TWWI + n + pOld + Ur + factor(Country) + factor(Year) , data = data)
   #summary(first_stage)#+ factor(PR)
   fstbootcoef[i] <- list(summary(second_stage)$coefficients[1:6])
   
@@ -334,44 +422,59 @@ for (i in 1:bootnum) {
   data$FDG2 <- data$Gini2 * data$FD
   
   # Step 2: Second stage regression
-  second_stage <- lm(d5pGDPPC ~ Gini + Gini2 + FD + FDG + FDG2 + n + pOld + factor(Country) + factor(Year), data = data)#+ factor(PR)
+  second_stage <- lm(d5pGDPPC ~ FD + Gini + Gini2 + FDG + FDG2 + n + Ur + pOld + factor(Country) + factor(Year), data = data)#+ factor(PR)
   
   #store coefficients in list
   bootcoef[i] <- list(summary(second_stage)$coefficients[1:8])
+  resSE[i] <- summary(second_stage)$sigma
 
 } # end for loop
 
-data <- dat
+summary(second_stage)
 
 #bootcoef
-fstbootcoefM <- matrix(unlist(bootcoef), nrow = length(bootcoef), byrow = TRUE)
+
+fstbootcoefM <- matrix(unlist(fstbootcoef), nrow = length(fstbootcoef), byrow = TRUE)
 bootcoefM <- matrix(unlist(bootcoef), nrow = length(bootcoef), byrow = TRUE)
+resSEM <- matrix(unlist(resSE), nrow = length(resSE), byrow = TRUE)
+
+for (i in 1:6) {
+  print(i)
+  print(names(coef(first_stage))[i])
+  koo <- summary_with_percentiles(fstbootcoefM[ ,i])
+  
+  if (koo[3] * koo[7] < 0) {
+    print("NO")
+    print(koo)
+  } else { 
+    #print("YES")
+    print(koo)
+    }
+  print("-----------------------")
+}
 
 
-for (i in 1:8) { 
+for (i in 1:11) {
   print(i)
   print(names(coef(second_stage))[i])
   koo <- summary_with_percentiles(bootcoefM[ ,i])
   
-  if (koo[4] * koo[5] < 0) {
+  if (koo[3] * koo[7] < 0) {
     print("NO")
-  } else { print("YES")}
+    print(koo)
+  } else { 
+    #print("YES")
+    print(koo)
+    }
   print("-----------------------")
-  koo[4]
 }
 
-i = 4
+summary_with_percentiles(resSEM)
+
+i = 6
 print(names(coef(second_stage))[i])
 koo <- summary_with_percentiles(bootcoefM[ ,i])
 koo
-
-
-summary(bootcoefM)
-
-
-# Transpose the matrix
-#transposed_matrix <- t(bootcoefM)
-
 ```
 
 
